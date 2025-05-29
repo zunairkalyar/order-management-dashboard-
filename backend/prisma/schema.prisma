@@ -1,0 +1,54 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Order {
+  id            String    @id @default(uuid())
+  orderNumber   String    @unique
+  customerName  String
+  orderDate     DateTime  @default(now())
+  status        String
+  total         Float
+  items         String    // Stored as JSON string
+  whatsappNumber String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  auditTrail    AuditLog[]
+}
+
+model Customer {
+  id            String    @id @default(uuid())
+  name          String
+  whatsappNumber String   @unique
+  email         String?   @unique
+  orders        Order[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model AuditLog {
+  id            String    @id @default(uuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id])
+  action        String
+  description   String
+  userId        String?
+  createdAt     DateTime  @default(now())
+}
+
+model MessageLog {
+  id          String    @id @default(uuid())
+  phoneNumber String
+  message     String
+  status      String
+  metadata    Json
+  createdAt   DateTime  @default(now())
+}
