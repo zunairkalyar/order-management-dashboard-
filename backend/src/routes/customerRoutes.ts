@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { body, validationResult } from 'express-validator';
+import { validation } from '../middleware/validate';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -17,14 +18,71 @@ const asyncHandler =
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 
-// Get all customers
+// Get all customers with search, filter, and pagination
 router.get('/', asyncHandler(async (req, res) => {
+  const { page, limit, skip } = getPaginationParams(req);
+  const { field: sortField, order: sortOrder } = getSortParams(req, 'name');
+  const filters = getFilterParams(req);
+
+  // Build where clause
+  const where: any = {};
+  
+  if (filters.search) {
+    where.OR = [
+      { name: { contains: filters.search } },
+      { whatsappNumber: { contains: filters.search } },
+      { email: { contains: filters.search } }
+    ];
+  }
+
+  // Get total count for pagination
+  const total = await prisma.customer.count({ where });
+
+  // Get customers with pagination and order summary
   const customers = await prisma.customer.findMany({
+    where,
     include: {
-      orders: true,
+      orders: {
+        select: {
+          id: true,
+          orderNumber: true,
+          total: true,
+          status: true,
+          createdAt: true
+        }
+      },
+      _count: {
+        select: { orders: true }
+      }
     },
+    orderBy: {
+      [sortField]: sortOrder
+    },
+    skip,
+    take: limit
   });
-  res.json(customers);
+
+  // Calculate additional metrics for each customer
+  const customersWithMetrics = customers.map(customer => ({
+    ...customer,
+    metrics: {
+      totalOrders: customer._count.orders,
+      totalSpent: customer.orders.reduce((sum, order) => sum + order.total, 0),
+      lastOrderDate: customer.orders.length > 0 
+        ? Math.max(...customer.orders.map(o => o.createdAt.getTime()))
+        : null
+    }
+  }));
+
+  res.json({
+    data: customersWithMetrics,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  });
 }));
 
 // Get single customer

@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { body, validationResult } from 'express-validator';
+import { validation } from '../middleware/validate';
+import { getPaginationParams, getSortParams, getFilterParams } from '../utils/queryUtils';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -17,16 +19,61 @@ const asyncHandler =
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 
-// Get all orders
+// Get all orders with search, filter, and pagination
 router.get(
   '/',
   asyncHandler(async (req, res) => {
+    const { page, limit, skip } = getPaginationParams(req);
+    const { field: sortField, order: sortOrder } = getSortParams(req);
+    const filters = getFilterParams(req);
+
+    // Build where clause
+    const where: any = {};
+    
+    if (filters.status) {
+      where.status = filters.status;
+    }
+    
+    if (filters.search) {
+      where.OR = [
+        { orderNumber: { contains: filters.search } },
+        { customerName: { contains: filters.search } },
+        { whatsappNumber: { contains: filters.search } }
+      ];
+    }
+
+    if (filters.startDate && filters.endDate) {
+      where.orderDate = {
+        gte: new Date(filters.startDate as string),
+        lte: new Date(filters.endDate as string)
+      };
+    }
+
+    // Get total count for pagination
+    const total = await prisma.order.count({ where });
+
+    // Get orders with pagination
     const orders = await prisma.order.findMany({
+      where,
       include: {
         customer: true,
       },
+      orderBy: {
+        [sortField]: sortOrder
+      },
+      skip,
+      take: limit
     });
-    res.json(orders);
+
+    res.json({
+      data: orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   })
 );
 
@@ -51,12 +98,7 @@ router.get(
 // Create new order
 router.post(
   '/',
-  [
-    body('customerName').notEmpty(),
-    body('items').isArray(),
-    body('total').isFloat(),
-    body('status').notEmpty(),
-  ],
+  validation.order.create,
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

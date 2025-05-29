@@ -4,6 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import orderRoutes from './routes/orderRoutes';
 import customerRoutes from './routes/customerRoutes';
 import auditRoutes from './routes/auditRoutes';
+import statsRoutes from './routes/statsRoutes';
+import bulkRoutes from './routes/bulkRoutes';
 import { config, validateConfig } from './config';
 import { errorHandler } from './middleware/auth';
 
@@ -21,6 +23,8 @@ app.use(express.json());
 app.use('/api/orders', orderRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/bulk', bulkRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
