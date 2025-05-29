@@ -20,7 +20,8 @@ export const WhatsAppAPISettingsView: React.FC<WhatsAppAPISettingsViewProps> = (
   const [testRecipient, setTestRecipient] = useState<string>(defaultTestRecipient);
   const [testMessage, setTestMessage] = useState<string>('This is a test message from the Order Management Dashboard.');
   const [isSending, setIsSending] = useState<boolean>(false);
-  const [sendResponse, setSendResponse] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [sendResponse, setSendResponse] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
+  const [fullResponseJson, setFullResponseJson] = useState<any>(null); // State to store full response
 
   useEffect(() => {
     setConfig(initialConfig);
@@ -40,20 +41,39 @@ export const WhatsAppAPISettingsView: React.FC<WhatsAppAPISettingsViewProps> = (
   const handleSendTest = async () => {
     if (!testRecipient || !testMessage) {
       setSendResponse({ type: 'error', message: 'Recipient number and message cannot be empty.' });
+      setFullResponseJson(null);
       return;
     }
     setIsSending(true);
     setSendResponse(null);
+    setFullResponseJson(null); // Clear previous response
     try {
       const result = await onSendTestMessage(testRecipient, testMessage, config);
-      if (result.success) {
-        setSendResponse({ type: 'success', message: `Test message sent to ${testRecipient}. Mock Response: ${JSON.stringify(result.response)}` });
-      } else {
-        setSendResponse({ type: 'error', message: `Failed to send test message. Mock Response: ${JSON.stringify(result.response)}` });
+      setFullResponseJson(result.response); // Store full response
+
+      // Basic check for the mock response structure
+      const isMockResponse = (
+        result.response &&
+        result.response.type === 'NewOrder' &&
+        typeof result.response.content === 'string' &&
+        typeof result.response.recipient === 'string'
+      );
+
+      if (result.success && !isMockResponse) {
+        // Assuming result.success is true for any successful API call,
+        // we now also check if it's NOT a mock response to show real success.
+        setSendResponse({ type: 'success', message: `Test message sent successfully to ${testRecipient}.` });
+      } else if (isMockResponse) {
+         setSendResponse({ type: 'warning', message: `Test message sent, but received a potential mock response. Message may not have been delivered.` });
       }
-    } catch (error) {
+      else {
+        // Handle API errors or non-mock failures
+        setSendResponse({ type: 'error', message: `Failed to send test message. Response: ${JSON.stringify(result.response)}` });
+      }
+    } catch (error: any) { // Explicitly type error as any
       console.error("Error sending test message:", error);
-      setSendResponse({ type: 'error', message: `Error sending test message: ${error instanceof Error ? error.message : String(error)}` });
+      setSendResponse({ type: 'error', message: `Error sending test message: ${error.message || String(error)}` });
+      setFullResponseJson(error.response ? error.response.data : null); // Store error response if available
     } finally {
       setIsSending(false);
     }
@@ -150,13 +170,23 @@ export const WhatsAppAPISettingsView: React.FC<WhatsAppAPISettingsViewProps> = (
             )}
           </button>
           {sendResponse && (
-            <div className={`mt-4 p-3 rounded-md text-sm ${sendResponse.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} flex items-center`}>
+            <div className={`mt-4 p-3 rounded-md text-sm ${sendResponse.type === 'success' ? 'bg-green-100 text-green-700' : sendResponse.type === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'} flex items-center`}>
               {sendResponse.type === 'success' ? <CheckCircleIcon className="w-5 h-5 mr-2"/> : <XCircleIcon className="w-5 h-5 mr-2"/>}
               {sendResponse.message}
             </div>
           )}
         </div>
       </div>
+
+      {/* Debug Panel to show full JSON response */}
+      {fullResponseJson && (
+        <div className="mt-4 p-3 bg-gray-100 rounded-md text-sm text-gray-800">
+          <h3 className="text-lg font-semibold mb-2">Full API Response:</h3>
+          <pre className="whitespace-pre-wrap break-all text-xs">
+            {JSON.stringify(fullResponseJson, null, 2)}
+          </pre>
+        </div>
+      )}
       
       <hr className="my-6 border-gray-200" />
 
