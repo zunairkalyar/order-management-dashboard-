@@ -9,11 +9,13 @@ import bulkRoutes from './routes/bulkRoutes';
 import { config, validateConfig } from './config';
 import { errorHandler } from './middleware/auth';
 
+// Initialize Prisma Client
+const prisma = new PrismaClient();
+
 // Validate environment variables
 validateConfig();
 
 const app = express();
-const prisma = new PrismaClient();
 
 // Middleware
 app.use(cors(config.cors));

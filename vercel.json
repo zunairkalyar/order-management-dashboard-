@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "buildCommand": "cd backend && npm install && npm run vercel-build",
+  "outputDirectory": "backend/dist",
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.ts"
+    }
+  ],
+  "env": {
+    "POSTGRES_PRISMA_URL": "@postgres-prisma-url",
+    "POSTGRES_URL_NON_POOLING": "@postgres-url-non-pooling",
+    "JWT_SECRET": "@jwt-secret"
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "development": true,
+      "production": false
+    }
+  }
+}
