@@ -50,5 +50,6 @@ model MessageLog {
   message     String
   status      String
   metadata    Json
+  error       String?   // Add error field
   createdAt   DateTime  @default(now())
 }
