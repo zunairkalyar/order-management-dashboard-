@@ -1,0 +1,7 @@
+
+{
+  "name": "Order Management Dashboard",
+  "description": "A React application to manage and simulate processing of e-commerce orders, including notifications and tracking status updates, using customizable message templates.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
